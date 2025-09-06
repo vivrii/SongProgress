@@ -22,3 +22,5 @@ class ComposeAppCommonTest {
         }
     }
 }
+
+expect fun loadResourceFile(path: String): String

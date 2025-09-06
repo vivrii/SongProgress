@@ -1,5 +1,7 @@
 package org.vivrii.songprogress.domain.models
 
 data class Album(
-    val tracks: List<Track>,
-)
+    val title: String
+) {
+    val tracks = HashMap<String, Track>()
+}
