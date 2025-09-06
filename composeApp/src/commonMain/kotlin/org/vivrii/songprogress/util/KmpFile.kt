@@ -2,7 +2,7 @@ package org.vivrii.songprogress.util
 
 expect class KmpFile(path: String) {
     companion object {
-        val cacheDir: KmpFile
+        fun cacheDir(): KmpFile
     }
 
     val path: String

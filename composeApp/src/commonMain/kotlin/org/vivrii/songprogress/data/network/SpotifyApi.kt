@@ -31,7 +31,7 @@ import kotlin.time.Instant
 
 class SpotifyApi() {
     private var token: Token? = null
-    private val tokenFile = KmpFile.cacheDir / "spotify" / "token"
+    private val tokenFile = KmpFile.cacheDir() / "spotify" / "token"
     private val baseUrl = "https://api.spotify.com/v1"
 
     private val client = HttpClient {
@@ -128,6 +128,8 @@ class SpotifyApi() {
         if (tokenFile.exists()) {
             token = Json.decodeFromString(tokenFile.readText())
             println("loaded cached token: ${token?.secret}, ${token?.expiry}. from $tokenFile")
+        } else {
+            println("no token in: $tokenFile")
         }
     }
 

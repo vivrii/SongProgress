@@ -21,14 +21,10 @@ val secretKeyProperties by lazy {
 buildConfig {
     packageName = "org.vivrii.songprogress"
     buildConfigField(
-        "String",
-        "SPOTIFY_CLIENT_ID",
-        "\"${secretKeyProperties["spotifyClientId"]}\""
+        "String", "SPOTIFY_CLIENT_ID", "\"${secretKeyProperties["spotifyClientId"]}\""
     )
     buildConfigField(
-        "String",
-        "SPOTIFY_CLIENT_SECRET",
-        "\"${secretKeyProperties["spotifyClientSecret"]}\""
+        "String", "SPOTIFY_CLIENT_SECRET", "\"${secretKeyProperties["spotifyClientSecret"]}\""
     )
 }
 
@@ -38,30 +34,34 @@ kotlin {
             jvmTarget.set(JvmTarget.JVM_11)
         }
     }
-    
+
     listOf(
-        iosArm64(),
-        iosSimulatorArm64()
+        iosArm64(), iosSimulatorArm64()
     ).forEach { iosTarget ->
         iosTarget.binaries.framework {
             baseName = "ComposeApp"
             isStatic = true
         }
     }
-    
+
     jvm()
-    
-    @OptIn(ExperimentalWasmDsl::class)
-    wasmJs {
+
+    @OptIn(ExperimentalWasmDsl::class) wasmJs {
         browser()
         binaries.executable()
     }
-    
+
     sourceSets {
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
             implementation(libs.ktor.client.okhttp)
+        }
+        androidInstrumentedTest.dependencies {
+            implementation(libs.androidx.core)
+            implementation(libs.androidx.testExt.junit)
+            implementation(libs.androidx.runner)
+            implementation(libs.kotlinx.coroutines.test)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -103,6 +103,7 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     packaging {
         resources {

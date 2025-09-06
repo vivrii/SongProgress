@@ -1,5 +1,7 @@
 package org.vivrii.songprogress.util
 
+import android.content.Context
+import android.os.Build
 import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.appendText
@@ -10,10 +12,20 @@ import kotlin.io.path.writeText
 
 actual class KmpFile actual constructor(actual val path: String) {
     actual companion object {
-        actual fun cacheDir(): KmpFile = KmpFile(System.getProperty("java.io.tmpdir"))
+        private var cacheDir: String? = null
+
+        fun init(ctx: Context) {
+            cacheDir = ctx.cacheDir.absolutePath
+        }
+
+        actual fun cacheDir(): KmpFile = KmpFile(cacheDir ?: error("cacheDir missing. must first initialise via KmpFile.init(Context)"))
     }
 
-    private val pathObj = Path(path).normalize()
+    private val pathObj = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        Path(path).normalize()
+    } else {
+        Path(path)
+    }
 
     actual fun exists(): Boolean = pathObj.exists()
 
