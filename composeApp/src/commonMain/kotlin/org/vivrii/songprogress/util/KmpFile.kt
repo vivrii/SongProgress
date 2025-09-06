@@ -4,6 +4,7 @@ expect class KmpFile(path: String) {
     companion object {
         val cacheDir: KmpFile
     }
+
     val path: String
     fun exists(): Boolean
     fun create()

@@ -58,7 +58,10 @@ class SpotifyApi() {
         return response.items
     }
 
-    internal suspend inline fun <reified T> authGet(url: String, crossinline block: HttpRequestBuilder.() -> Unit = {}): T {
+    internal suspend inline fun <reified T> authGet(
+        url: String,
+        crossinline block: HttpRequestBuilder.() -> Unit = {},
+    ): T {
         checkRefreshToken()
 
         // TODO: a not duplication-y way of retrying once...
@@ -97,10 +100,7 @@ class SpotifyApi() {
         }.body()
 
         // store token + expiry and cache them
-        token = Token(
-            response.accessToken,
-            Clock.System.now().plus(response.expiresIn.seconds)
-        )
+        token = Token(response.accessToken, Clock.System.now().plus(response.expiresIn.seconds))
         token?.let { cacheToken(it) }
     }
 
@@ -144,20 +144,20 @@ class SpotifyApi() {
 @Serializable
 data class AlbumListResponse(
     val items: List<SpotifyAlbum>,
-    val next: String?
+    val next: String?,
 )
 
 @Serializable
 data class TrackListResponse(
     val items: List<SpotifyTrack>,
-    val next: String?
+    val next: String?,
 )
 
 @Serializable
 data class TokenResponse(
     @SerialName("access_token") val accessToken: String,
     @SerialName("token_type") val tokenType: String,
-    @SerialName("expires_in") val expiresIn: Int
+    @SerialName("expires_in") val expiresIn: Int,
 )
 
 @Serializable
