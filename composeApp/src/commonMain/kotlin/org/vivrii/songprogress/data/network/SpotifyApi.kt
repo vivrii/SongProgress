@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTime::class)
+
 package org.vivrii.songprogress.data.network
 
 import io.ktor.client.HttpClient
@@ -13,6 +15,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.util.encodeBase64
+import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -20,15 +23,15 @@ import org.vivrii.songprogress.BuildConfig
 import org.vivrii.songprogress.domain.models.SpotifyAlbum
 import org.vivrii.songprogress.domain.models.SpotifyArtist
 import org.vivrii.songprogress.domain.models.SpotifyTrack
+import org.vivrii.songprogress.util.KmpFile
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
-@OptIn(ExperimentalTime::class)
 class SpotifyApi() {
-    private var token: String? = null
-    private var tokenExpiry: Instant? = null
+    private var token: Token? = null
+    private val tokenFile = KmpFile.cacheDir / "spotify" / "token"
     private val baseUrl = "https://api.spotify.com/v1"
 
     private val client = HttpClient {
@@ -55,12 +58,31 @@ class SpotifyApi() {
         return response.items
     }
 
-    internal suspend inline fun <reified T> authGet(url: String, block: HttpRequestBuilder.() -> Unit = {}): T {
-        ensureCurrentToken()
-        return client.get(url) {
-            header(HttpHeaders.Authorization, "Bearer $token")
-            block()
-        }.body()
+    internal suspend inline fun <reified T> authGet(url: String, crossinline block: HttpRequestBuilder.() -> Unit = {}): T {
+        checkRefreshToken()
+
+        // TODO: a not duplication-y way of retrying once...
+        // TODO: check the reason was actually due to invalid access token
+        return try {
+            client.get(url) {
+                header(HttpHeaders.Authorization, "Bearer ${token!!.secret}")
+                block()
+            }.also { response ->
+                println(response.bodyAsText())
+            }.body()
+
+        } catch (e: Exception) {
+            println("exception occurred: ${e.message}")
+            checkRefreshToken(force = true)
+
+            client.get(url) {
+                header(HttpHeaders.Authorization, "Bearer ${token!!.secret}")
+                block()
+            }.also { response ->
+                println(response.bodyAsText())
+            }.body()
+        }
+
     }
 
     private suspend fun getClientToken(clientId: String, clientSecret: String) {
@@ -74,20 +96,47 @@ class SpotifyApi() {
             println(text)
         }.body()
 
-        // store token end expiry TODO: cache these
-        token = response.accessToken
-        tokenExpiry = Clock.System.now().plus(response.expiresIn.seconds)
+        // store token + expiry and cache them
+        token = Token(
+            response.accessToken,
+            Clock.System.now().plus(response.expiresIn.seconds)
+        )
+        token?.let { cacheToken(it) }
     }
 
-    private suspend fun ensureCurrentToken() {
-        tokenExpiry.let { expiry ->
-            if (token == null || expiry == null || Clock.System.now() >= expiry) {
+    private suspend fun checkRefreshToken(force: Boolean = false) {
+        if (force) {
+            println("forcing token refresh")
+            token = null
+        } else if (token == null) {
+            loadTokenFromCache()
+        }
+
+        token?.let { token ->
+            if (Clock.System.now() >= token.expiry) {
                 println("refreshing token")
-                getClientToken(BuildConfig.SPOTIFY_CLIENT_ID, BuildConfig.SPOTIFY_CLIENT_SECRET)
             } else {
                 println("using current token")
+                return
             }
         }
+
+        getClientToken(BuildConfig.SPOTIFY_CLIENT_ID, BuildConfig.SPOTIFY_CLIENT_SECRET)
+    }
+
+    private fun loadTokenFromCache() {
+        if (tokenFile.exists()) {
+            token = Json.decodeFromString(tokenFile.readText())
+            println("loaded cached token: ${token?.secret}, ${token?.expiry}. from $tokenFile")
+        }
+    }
+
+    private fun cacheToken(token: Token) {
+        if (!tokenFile.exists()) {
+            tokenFile.create()
+        }
+        println("caching token")
+        tokenFile.writeText(Json.encodeToString(token))
     }
 }
 
@@ -109,4 +158,12 @@ data class TokenResponse(
     @SerialName("access_token") val accessToken: String,
     @SerialName("token_type") val tokenType: String,
     @SerialName("expires_in") val expiresIn: Int
+)
+
+@Serializable
+@OptIn(InternalSerializationApi::class)
+@Suppress("SERIALIZER_NOT_FOUND")
+data class Token(
+    val secret: String,
+    val expiry: Instant,
 )
