@@ -14,8 +14,7 @@ class ComposeAppCommonTest {
 
     @Test
     fun spotifyApiTest() = runTest {
-        val token = ""
-        val api = SpotifyApi(token)
+        val api = SpotifyApi()
 
         val artistId = "079cEjjSpv5dOLH5xsGdvN"
         val artist = api.getArtist(artistId)

@@ -1,7 +1,7 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -10,6 +10,26 @@ plugins {
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeHotReload)
     alias(libs.plugins.serialization)
+    alias(libs.plugins.buildConfig)
+}
+
+val secretKeyProperties by lazy {
+    val secretKeyPropertiesFile = rootProject.file("secrets.properties")
+    Properties().apply { secretKeyPropertiesFile.inputStream().use { load(it) } }
+}
+
+buildConfig {
+    packageName = "org.vivrii.songprogress"
+    buildConfigField(
+        "String",
+        "SPOTIFY_CLIENT_ID",
+        "\"${secretKeyProperties["spotifyClientId"]}\""
+    )
+    buildConfigField(
+        "String",
+        "SPOTIFY_CLIENT_SECRET",
+        "\"${secretKeyProperties["spotifyClientSecret"]}\""
+    )
 }
 
 kotlin {
