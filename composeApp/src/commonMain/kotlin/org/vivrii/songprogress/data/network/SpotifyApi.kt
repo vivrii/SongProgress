@@ -13,6 +13,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
+import io.ktor.serialization.JsonConvertException
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.util.encodeBase64
 import kotlinx.serialization.InternalSerializationApi
@@ -60,32 +61,32 @@ class SpotifyApi() {
 
     internal suspend inline fun <reified T> authGet(
         url: String,
+        retryCount: Int = 1,
         crossinline block: HttpRequestBuilder.() -> Unit = {},
     ): T {
         checkRefreshToken()
-
-        // TODO: a not duplication-y way of retrying once...
-        // TODO: check the reason was actually due to invalid access token
-        return try {
-            client.get(url) {
-                header(HttpHeaders.Authorization, "Bearer ${token!!.secret}")
-                block()
-            }.also { response ->
-                println(response.bodyAsText())
-            }.body()
-
-        } catch (e: Exception) {
-            println("exception occurred: ${e.message}")
-            checkRefreshToken(force = true)
-
-            client.get(url) {
-                header(HttpHeaders.Authorization, "Bearer ${token!!.secret}")
-                block()
-            }.also { response ->
-                println(response.bodyAsText())
-            }.body()
+        var currentTry = 0
+        while (currentTry <= retryCount) {
+            try {
+                return client.get(url) {
+                    header(HttpHeaders.Authorization, "Bearer ${token!!.secret}")
+                    block()
+                }.also { response ->
+                    println("Response for $url: ${response.status}")
+                }.body()
+            } catch (e: JsonConvertException) {
+                // TODO: check the auth issue first before retrying
+                // TODO: throw the error for either case only when the retry count is exhausted, else just log it
+                println("exception occurred: ${e.message}")
+                checkRefreshToken(force = true)
+                currentTry++
+            } catch (e: Exception) {
+                println("exception occurred: ${e.message}")
+                throw e
+            }
         }
 
+        throw Exception("failed to fetch data within ${retryCount + 1} tries")
     }
 
     private suspend fun getClientToken(clientId: String, clientSecret: String) {
